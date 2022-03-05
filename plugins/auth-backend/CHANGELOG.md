@@ -1,5 +1,16 @@
 # @backstage/plugin-auth-backend
 
+## 0.12.1
+
+### Patch Changes
+
+- bf95bb806c: Remove usages of now-removed `CatalogApi.getEntityByName`
+- Updated dependencies
+  - @backstage/catalog-model@0.13.0
+  - @backstage/backend-common@0.13.0
+  - @backstage/catalog-client@0.9.0
+  - @backstage/plugin-auth-node@0.1.5
+
 ## 0.12.0
 
 ### Minor Changes
