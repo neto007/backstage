@@ -33,6 +33,7 @@ export async function runGit(...args: string[]) {
     return stdout.trim().split(/\r\n|\r|\n/);
   } catch (error) {
     assertError(error);
+    console.log('DEBUG: error =', error);
     if (error.stderr || typeof error.code === 'number') {
       const stderr = (error.stderr as undefined | Buffer)?.toString('utf8');
       const msg = stderr?.trim() ?? `with exit code ${error.code}`;
