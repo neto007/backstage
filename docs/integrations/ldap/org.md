@@ -43,41 +43,24 @@ import { LdapOrgEntityProvider } from '@backstage/plugin-catalog-backend-module-
 export default async function createPlugin(
   env: PluginEnvironment,
 ): Promise<Router> {
-  // The target parameter below needs to match the ldap.providers.target
-  // value specified in your app-config
-  const ldapEntityProvider = LdapOrgEntityProvider.fromConfig(env.config, {
-    id: 'our-ldap-master',
-    target: 'ldaps://ds.example.net',
-    logger: env.logger,
-  });
-
   const builder = await CatalogBuilder.create(env);
-  builder.addEntityProvider(ldapEntityProvider);
 
-  // You can change the refresh interval for the other catalog entries
-  // independently, or just leave the line below out to use the default
-  // refresh interval. Note that this interval does NOT at all affect
-  // the LDAP refresh when using the provider method, which is good!
-  builder.setRefreshIntervalSeconds(100);
+  // The target parameter below needs to match the ldap.providers.target
+  // value specified in your app-config.
+  builder.addEntityProvider(
+    LdapOrgEntityProvider.fromConfig(env.config, {
+      id: 'our-ldap-master',
+      target: 'ldaps://ds.example.net',
+      logger: env.logger,
+    }).withSchedule({
+      scheduler: env.scheduler,
+      frequency: Duration.fromObject({ minutes: 60 }),
+      timeout: Duration.fromObject({ minutes: 15 }),
+    }),
+  );
 
   const { processingEngine, router } = await builder.build();
   await processingEngine.start();
-
-  // Only perform this scheduling after starting the processing engine
-  await env.scheduler.scheduleTask({
-    id: 'refresh_ldap',
-    // frequency sets how often you want to ingest users and groups from
-    // LDAP, in this case every 60 minutes
-    frequency: Duration.fromObject({ minutes: 60 }),
-    timeout: Duration.fromObject({ minutes: 15 }),
-    fn: async () => {
-      try {
-        await ldapEntityProvider.read();
-      } catch (error) {
-        env.logger.error(error);
-      }
-    },
-  });
 
   return router;
 }

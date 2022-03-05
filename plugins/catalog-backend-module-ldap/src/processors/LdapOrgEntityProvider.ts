@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { PluginTaskScheduler } from '@backstage/backend-tasks';
 import {
   ANNOTATION_LOCATION,
   ANNOTATION_ORIGIN_LOCATION,
@@ -25,6 +26,7 @@ import {
   EntityProviderConnection,
 } from '@backstage/plugin-catalog-backend';
 import { merge } from 'lodash';
+import { Duration } from 'luxon';
 import { Logger } from 'winston';
 import {
   GroupTransformer,
@@ -49,6 +51,7 @@ import {
  */
 export class LdapOrgEntityProvider implements EntityProvider {
   private connection?: EntityProviderConnection;
+  private scheduleFn?: () => Promise<void>;
 
   static fromConfig(
     configRoot: Config,
@@ -128,11 +131,55 @@ export class LdapOrgEntityProvider implements EntityProvider {
   /** {@inheritdoc @backstage/plugin-catalog-backend#EntityProvider.connect} */
   async connect(connection: EntityProviderConnection) {
     this.connection = connection;
+    await this.scheduleFn?.();
   }
 
   /**
-   * Runs one complete ingestion loop. Call this method regularly at some
-   * appropriate cadence.
+   * Convenience method for scheduling automatic calls to run at a regular
+   * cadence. If you use this method, you do not have to call run explicitly.
+   *
+   * @remarks
+   *
+   * Note that the schedule doesn't actually start until after the catalog
+   * builder finishes.
+   *
+   * @returns This instance
+   */
+  withSchedule(options: {
+    scheduler: PluginTaskScheduler;
+    frequency: Duration;
+    initialDelay?: Duration;
+    timeout: Duration;
+  }): this {
+    if (this.scheduleFn) {
+      throw new Error('You can only schedule once');
+    } else if (this.connection) {
+      throw new Error('You can only schedule before connecting');
+    }
+
+    this.scheduleFn = async () => {
+      await options.scheduler.scheduleTask({
+        id: this.getTaskId(),
+        frequency: options.frequency,
+        timeout: options.timeout,
+        initialDelay: options.initialDelay,
+        fn: async () => {
+          try {
+            await this.read();
+          } catch (error) {
+            this.options.logger.error(error);
+          }
+        },
+      });
+    };
+
+    return this;
+  }
+
+  /**
+   * Runs one single complete ingestion loop. You can manually call this method
+   * regularly at some appropriate cadence, or use the withSchedule convenience
+   * method to schedule it regularly.
    */
   async read() {
     if (!this.connection) {
@@ -172,6 +219,12 @@ export class LdapOrgEntityProvider implements EntityProvider {
     });
 
     markCommitComplete();
+  }
+
+  // Gets a suitable scheduler task ID for this provider instance
+  private getTaskId(): string {
+    const rawId = `refresh_${this.getProviderName()}`;
+    return rawId.toLocaleLowerCase('en-US').replace(/[^a-z0-9]/g, '_');
   }
 }
 

@@ -7,12 +7,14 @@ import { CatalogProcessor } from '@backstage/plugin-catalog-backend';
 import { CatalogProcessorEmit } from '@backstage/plugin-catalog-backend';
 import { Client } from 'ldapjs';
 import { Config } from '@backstage/config';
+import { Duration } from 'luxon';
 import { EntityProvider } from '@backstage/plugin-catalog-backend';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-backend';
 import { GroupEntity } from '@backstage/catalog-model';
 import { JsonValue } from '@backstage/types';
 import { LocationSpec } from '@backstage/plugin-catalog-backend';
 import { Logger as Logger_2 } from 'winston';
+import { PluginTaskScheduler } from '@backstage/backend-tasks';
 import { SearchEntry } from 'ldapjs';
 import { SearchOptions } from 'ldapjs';
 import { UserEntity } from '@backstage/catalog-model';
@@ -117,6 +119,12 @@ export class LdapOrgEntityProvider implements EntityProvider {
   // (undocumented)
   getProviderName(): string;
   read(): Promise<void>;
+  withSchedule(options: {
+    scheduler: PluginTaskScheduler;
+    frequency: Duration;
+    initialDelay?: Duration;
+    timeout: Duration;
+  }): this;
 }
 
 // @public
